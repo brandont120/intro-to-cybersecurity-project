@@ -18,6 +18,8 @@ npm install
 
  2. Configure Environment Variables
 Create a `.env` file in the backend directory:
+```
+DB_USER=postgres
 DB_PASSWORD=postgres
 DB_HOST=localhost
 DB_PORT=5432
