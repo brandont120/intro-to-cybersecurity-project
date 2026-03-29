@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './AuthContext';
 import Login from './Login';
@@ -6,22 +7,7 @@ import Dashboard from './Dashboard';
 import ProtectedRoute from './ProtectedRoute';
 import './App.css';
 
-function App() {
-<<<<<<< HEAD
-  return (
-    <BrowserRouter>
-      <AuthProvider>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            }
-=======
+function MedicalNotes() {
   const [formData, setFormData] = useState({
     patientName: '',
     doctorName: '',
@@ -35,7 +21,6 @@ function App() {
   const [searchResults, setSearchResults] = useState([])
   const [isSearching, setIsSearching] = useState(false)
   const [searchMessage, setSearchMessage] = useState('')
-
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value })
@@ -101,21 +86,12 @@ function App() {
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{ flex: 1, padding: '8px' }}
             />
-            <button 
-              type="submit" 
-              style={{ 
-                padding: '8px 16px', 
-                marginLeft: '8px' 
-              }}
-            >
+            <button type="submit" style={{ padding: '8px 16px', marginLeft: '8px' }}>
               Search
             </button>
           </div>
         </form>
-        {searchMessage && <p style={{ color: 'red' }}>
-          {searchMessage}
-          </p>
-        }
+        {searchMessage && <p style={{ color: 'red' }}>{searchMessage}</p>}
         {searchResults.length > 0 && (
           <div>
             <h2>Search Results</h2>
@@ -143,7 +119,61 @@ function App() {
             onChange={handleChange}
             required
             style={{ width: '100%', padding: '8px' }}
->>>>>>> afe8547887684d0ea24e91b62c959843c87312f2
+          />
+        </div>
+        <div style={{ marginBottom: '12px' }}>
+          <label>Doctor Name</label><br />
+          <input
+            type="text"
+            name="doctorName"
+            value={formData.doctorName}
+            onChange={handleChange}
+            required
+            style={{ width: '100%', padding: '8px' }}
+          />
+        </div>
+        <div style={{ marginBottom: '12px' }}>
+          <label>Date</label><br />
+          <input
+            type="date"
+            name="date"
+            value={formData.date}
+            onChange={handleChange}
+            required
+            style={{ width: '100%', padding: '8px' }}
+          />
+        </div>
+        <div style={{ marginBottom: '12px' }}>
+          <label>Medical Notes</label><br />
+          <textarea
+            name="notes"
+            value={formData.notes}
+            onChange={handleChange}
+            required
+            style={{ width: '100%', padding: '8px', height: '100px' }}
+          />
+        </div>
+        <button type="submit" style={{ padding: '10px 20px' }}>Submit Notes</button>
+      </form>
+      {message && <p style={{ marginTop: '16px', color: 'green' }}>{message}</p>}
+    </div>
+  )       
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <MedicalNotes />
+              </ProtectedRoute>
+            }
           />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
         </Routes>
