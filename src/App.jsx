@@ -28,10 +28,11 @@ function MedicalNotes() {
   
   const handleSubmit = async (e) => {
     e.preventDefault()
+    const token = localStorage.getItem('token')
     try {
       const response = await fetch('http://localhost:5000/api/notes', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
         body: JSON.stringify(formData),
       })
       const data = await response.json()
@@ -171,7 +172,7 @@ function App() {
             path="/dashboard"
             element={
               <ProtectedRoute>
-                <MedicalNotes />
+                <Dashboard />
               </ProtectedRoute>
             }
           />
