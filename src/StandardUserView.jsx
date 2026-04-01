@@ -10,6 +10,12 @@ export default function StandardUserView() {
     notes: '',
   });
   const [message, setMessage] = useState('');
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchMessage, setSearchMessage] = useState('');
+
+
   const { user, token, logout } = useContext(AuthContext);
 
   const handleChange = (e) => {
@@ -36,6 +42,31 @@ export default function StandardUserView() {
       }
     } catch (err) {
       setMessage('Could not connect to server.');
+    }
+  };
+
+
+  const handleSearch = async (e) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) {
+      setSearchMessage('Please enter a search query.');
+      setSearchResults([]);
+      return;
+    }
+    setSearchMessage('Searching...');
+    
+    try {
+      // Pass the search query as a URL parameter to your backend
+      const response = await fetch(`http://localhost:5000/api/notes?search=${searchQuery}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      
+      setSearchResults(data);
+      if (data.length === 0) setSearchMessage('No patients found.');
+      else setSearchMessage('');
+    } catch (err) {
+      setSearchMessage('Could not connect to server.');
     }
   };
 
@@ -72,6 +103,34 @@ export default function StandardUserView() {
 
       {/* Main content */}
       <div style={{ maxWidth: '600px', margin: '40px auto', backgroundColor: 'white', padding: '30px', borderRadius: '10px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
+        {/* Left Column: Search */}
+        <div style={{ flex: 1, backgroundColor: 'white', padding: '30px', borderRadius: '10px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)', alignSelf: 'flex-start' }}>
+          <h2 style={{ marginBottom: '20px', color: '#333' }}>Search Patients</h2>
+          <form onSubmit={handleSearch} style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+            <input
+              type="text"
+              placeholder="Search by patient name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ flex: 1, padding: '10px', borderRadius: '5px', border: '1px solid #ddd' }}
+            />
+            <button type="submit" style={{ padding: '10px 20px', backgroundColor: '#667eea', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>Search</button>
+          </form>
+          
+          {searchMessage && <p style={{ color: searchMessage.includes('found') ? 'red' : '#666' }}>{searchMessage}</p>}
+          
+          <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+            {searchResults.map((note, index) => (
+              <div key={index} style={{ marginBottom: '15px', padding: '15px', border: '1px solid #eee', borderRadius: '5px', backgroundColor: '#fafafa' }}>
+                <p style={{ margin: '0 0 5px 0' }}><strong>Patient:</strong> {note.patientName}</p>
+                <p style={{ margin: '0 0 5px 0' }}><strong>Doctor:</strong> {note.doctorName}</p>
+                <p style={{ margin: '0 0 5px 0' }}><strong>Date:</strong> {new Date(note.date).toLocaleDateString()}</p>
+                <hr style={{ border: 'none', borderTop: '1px solid #ddd', margin: '10px 0' }} />
+                <p style={{ margin: 0 }}>{note.notes}</p>
+              </div>
+            ))}
+          </div>
+        </div>
         <h2 style={{ marginBottom: '20px', color: '#333' }}>Upload Medical Notes</h2>
         {message && (
           <div style={{

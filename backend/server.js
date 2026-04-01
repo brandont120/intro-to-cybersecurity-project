@@ -212,29 +212,56 @@ app.patch('/api/admin/users/:id/role', verifyToken, async (req, res) => {
   }
 });
 
-// store notes in memory for now
-const medicalNotes = []
-
-// POST route to receive form data from the frontend
-app.post('/api/notes', verifyToken, (req, res) => {
+// POST route to receive form data and save to PostgreSQL
+app.post('/api/notes', verifyToken, async (req, res) => {
   const { patientName, doctorName, date, notes } = req.body;
 
-  // basic validation
   if (!patientName || !doctorName || !date || !notes) {
     return res.status(400).json({ error: "All fields are required." });
   }
 
-  // save the note
-  const newNote = { patientName, doctorName, date, notes };
-  medicalNotes.push(newNote);
-
-  console.log("New medical note saved:", newNote);
-  res.status(201).json({message: "Note saved successfully.", note: newNote });
+  try {
+    const result = await pool.query(
+      "INSERT INTO medical_notes (user_id, patient_name, doctor_name, date, notes) VALUES ($1, $2, $3, $4, $5) RETURNING *",
+      [req.user.id, patientName, doctorName, date, notes]
+    );
+    res.status(201).json({ message: "Note saved successfully.", note: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: "Database error: " + err.message });
+  }
 });
 
-// GET route to view all saved notes
-app.get('/api/notes', verifyToken, (req, res) => {
-  res.json(medicalNotes);
+// GET route to view/search notes from PostgreSQL
+app.get('/api/notes', verifyToken, async (req, res) => {
+  const { search } = req.query;
+
+  try {
+    let query = "SELECT * FROM medical_notes";
+    let params = [];
+
+
+    if (search) {
+      query += " WHERE patient_name ILIKE $1"; 
+      params.push(`%${search}%`);
+    }
+
+    query += " ORDER BY created_at DESC";
+
+    const result = await pool.query(query, params);
+    
+
+    const formattedNotes = result.rows.map(row => ({
+      id: row.id,
+      patientName: row.patient_name,
+      doctorName: row.doctor_name,
+      date: row.date,
+      notes: row.notes
+    }));
+
+    res.json(formattedNotes);
+  } catch (err) {
+    res.status(500).json({ error: "Database error: " + err.message });
+  }
 });
 
 app.listen(5000, () => {
