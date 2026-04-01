@@ -4,6 +4,7 @@ import axios from 'axios';
 
 export default function AdminPanel() {
   const [users, setUsers] = useState([]);
+  const [allNotes, setAllNotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -11,6 +12,7 @@ export default function AdminPanel() {
 
   useEffect(() => {
     fetchUsers();
+    fetchAllNotes(); 
   }, []);
 
   const fetchUsers = async () => {
@@ -24,6 +26,17 @@ export default function AdminPanel() {
       setError('Failed to fetch users: ' + (err.response?.data?.error || err.message));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAllNotes = async () => {
+    try {
+      const response = await axios.get('http://localhost:5000/api/notes', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setAllNotes(response.data);
+    } catch (err) {
+      setError('Failed to fetch medical records.');
     }
   };
 
@@ -174,6 +187,27 @@ export default function AdminPanel() {
                         )}
                       </div>
                     </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <h2 style={{ marginTop: '40px', marginBottom: '20px', color: '#333' }}>All Medical Records Database</h2>
+            <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '20px' }}>
+              <thead>
+                <tr style={{ backgroundColor: '#f0f0f0', borderBottom: '2px solid #ddd' }}>
+                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>Patient</th>
+                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>Doctor</th>
+                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>Date</th>
+                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allNotes.map((note) => (
+                  <tr key={note.id} style={{ borderBottom: '1px solid #eee' }}>
+                    <td style={{ padding: '12px' }}>{note.patientName}</td>
+                    <td style={{ padding: '12px' }}>{note.doctorName}</td>
+                    <td style={{ padding: '12px' }}>{new Date(note.date).toLocaleDateString()}</td>
+                    <td style={{ padding: '12px' }}>{note.notes}</td>
                   </tr>
                 ))}
               </tbody>
