@@ -62,7 +62,6 @@ const escapeHTML = (str) => {
   }[tag]));
 };
 
-
 // initalize database tables
 async function initializeDatabase() {
   try {
@@ -109,18 +108,6 @@ const sendTokenCookie = (res, token) => {
   });
 };
 
-
-// Helper function to set the HttpOnly cookie
-const sendTokenCookie = (res, token) => {
-  res.cookie('token', token, {
-    httpOnly: true, 
-    secure: process.env.NODE_ENV === 'production', 
-    sameSite: 'strict', 
-    maxAge: 24 * 60 * 60 * 1000 
-  });
-};
-
-
 app.post('/api/auth/signup', async (req, res) => {
   const { username, email, password } = req.body;
   if (!username || !email || !password) return res.status(400).json({ error: "All fields required" });
@@ -162,6 +149,7 @@ app.post('/api/auth/login', async (req, res) => {
     res.status(500).json({ error: "Server error: " + err.message });
   }
 });
+
 // logout
 app.post('/api/auth/logout', (req, res) => {
   res.clearCookie('token');
@@ -175,20 +163,6 @@ app.get('/api/auth/me', verifyToken, async (req, res) => {
     res.json({ user: result.rows[0] });
   } catch (err) {
     res.status(500).json({ error: "Server error" });
-  }
-});
-
-
-
-app.get('/api/auth/me', verifyToken, async (req, res) => {
-  try {
-    const result = await pool.query("SELECT id, username, email, role FROM users WHERE id = $1", [req.user.id]);
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "User not found" });
-    }
-    res.json({ user: result.rows[0] });
-  } catch (err) {
-    res.status(500).json({ error: "Server error: " + err.message });
   }
 });
 
@@ -241,28 +215,6 @@ app.post('/api/notes', verifyToken, async (req, res) => {
       "INSERT INTO medical_notes (user_id, patient_name, doctor_name, date, notes) VALUES ($1, $2, $3, $4, $5) RETURNING *",
       [req.user.id, safePatientName, safeDoctorName, date, safeNotes]
     );
-    res.status(201).json({ message: "Note saved successfully.", note: result.rows[0] });
-  } catch (err) {
-    res.status(500).json({ error: "Database error: " + err.message });
-  }
-});
-
-// GET route to view/search notes from PostgreSQL
-app.post('/api/notes', verifyToken, async (req, res) => {
-  const { patientName, doctorName, date, notes } = req.body;
-  if (!patientName || !doctorName || !date || !notes) return res.status(400).json({ error: "All fields are required." });
-
-  // BLUE TEAM FIX 4: Apply XSS Sanitizer to incoming data
-  const safePatientName = escapeHTML(patientName);
-  const safeDoctorName = escapeHTML(doctorName);
-  const safeNotes = escapeHTML(notes);
-
-  try {
-    const result = await pool.query(
-      "INSERT INTO medical_notes (user_id, patient_name, doctor_name, date, notes) VALUES ($1, $2, $3, $4, $5) RETURNING *",
-      [req.user.id, safePatientName, safeDoctorName, date, safeNotes]
-    );
-
     console.log("New medical note saved to DB by user ID:", req.user.id);
     res.status(201).json({ message: "Note saved successfully.", note: result.rows[0] });
   } catch (err) {
@@ -270,6 +222,7 @@ app.post('/api/notes', verifyToken, async (req, res) => {
   }
 });
 
+// GET route to view/search notes from PostgreSQL
 app.get('/api/notes', verifyToken, async (req, res) => {
   try {
     let query;
