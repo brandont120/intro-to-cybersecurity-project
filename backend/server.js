@@ -3,30 +3,43 @@ import express from "express";
 import cors from "cors";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import cookieParser from "cookie-parser";
 import pkg from "pg";
 const { Pool } = pkg;
 
 const app = express();
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production";
+const requiredEnvVars = ['JWT_SECRET', 'DB_USER', 'DB_PASSWORD', 'DB_HOST', 'DB_PORT', 'DB_NAME'];
+for (const envVar of requiredEnvVars) {
+  if (!process.env[envVar]) {
+    console.error(`FATAL SECURITY ERROR: ${envVar} is missing from .env file.`);
+    process.exit(1); 
+  }
+}
+const JWT_SECRET = process.env.JWT_SECRET;
 
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:5173',
+  credentials: true 
+}));
+
 app.use(express.json());
+app.use(cookieParser());
 
 // PostgreSQL connection
 const pool = new Pool({
-  user: process.env.DB_USER || "postgres",
-  password: process.env.DB_PASSWORD || "postgres",
-  host: process.env.DB_HOST || "localhost",
-  port: process.env.DB_PORT || 5432,
-  database: process.env.DB_NAME || "cybersecurity_project",
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  database: process.env.DB_NAME,
 });
 
 // Middleware to verify JWT token
 const verifyToken = (req, res, next) => {
-  const token = req.headers.authorization?.split(" ")[1];
+  const token = req.cookies.token; 
   
   if (!token) {
-    return res.status(401).json({ error: "No token provided" });
+    return res.status(401).json({ error: "Unauthorized: No session token" });
   }
 
   try {
@@ -34,9 +47,21 @@ const verifyToken = (req, res, next) => {
     req.user = decoded;
     next();
   } catch (err) {
-    res.status(401).json({ error: "Invalid token" });
+    res.status(401).json({ error: "Unauthorized: Invalid session" });
   }
 };
+
+const escapeHTML = (str) => {
+  if (!str) return '';
+  return str.replace(/[&<>'"]/g, tag => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    "'": '&#39;',
+    '"': '&quot;'
+  }[tag]));
+};
+
 
 // initalize database tables
 async function initializeDatabase() {
@@ -74,78 +99,77 @@ initializeDatabase();
 
 // AUTH ROUTES
 
+// Helper function to set the HttpOnly cookie
+const sendTokenCookie = (res, token) => {
+  res.cookie('token', token, {
+    httpOnly: true, 
+    secure: process.env.NODE_ENV === 'production', 
+    sameSite: 'strict', 
+    maxAge: 24 * 60 * 60 * 1000 
+  });
+};
+
+
 // Sign up
 app.post('/api/auth/signup', async (req, res) => {
   const { username, email, password } = req.body;
-
-  if (!username || !email || !password) {
-    return res.status(400).json({ error: "All fields are required" });
-  }
+  if (!username || !email || !password) return res.status(400).json({ error: "All fields required" });
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     const result = await pool.query(
       "INSERT INTO users (username, email, password, role) VALUES ($1, $2, $3, $4) RETURNING id, username, email, role",
-      [username, email, hashedPassword, "user"]
+      [escapeHTML(username), escapeHTML(email), hashedPassword, "user"]
     );
 
     const user = result.rows[0];
-    const token = jwt.sign(
-      { id: user.id, username: user.username, role: user.role },
-      JWT_SECRET,
-      { expiresIn: "24h" }
-    );
-
-    res.status(201).json({ message: "User created successfully", user, token });
+    const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: "24h" });
+    
+    sendTokenCookie(res, token); // Set Cookie
+    res.status(201).json({ message: "User created successfully", user });
   } catch (err) {
-    if (err.code === "23505") {
-      res.status(400).json({ error: "Username or email already exists" });
-    } else {
-      res.status(500).json({ error: "Server error: " + err.message });
-    }
+    res.status(500).json({ error: "Server error: " + err.message });
   }
 });
 
 // Login
 app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
-
-  if (!email || !password) {
-    return res.status(400).json({ error: "Email and password required" });
-  }
+  if (!email || !password) return res.status(400).json({ error: "Email and password required" });
 
   try {
-    const result = await pool.query(
-      "SELECT * FROM users WHERE email = $1",
-      [email]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(401).json({ error: "Invalid email or password" });
-    }
+    const result = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
+    if (result.rows.length === 0) return res.status(401).json({ error: "Invalid credentials" });
 
     const user = result.rows[0];
     const passwordMatch = await bcrypt.compare(password, user.password);
+    if (!passwordMatch) return res.status(401).json({ error: "Invalid credentials" });
 
-    if (!passwordMatch) {
-      return res.status(401).json({ error: "Invalid email or password" });
-    }
-
-    const token = jwt.sign(
-      { id: user.id, username: user.username, role: user.role },
-      JWT_SECRET,
-      { expiresIn: "24h" }
-    );
-
-    res.json({
-      message: "Login successful",
-      user: { id: user.id, username: user.username, email: user.email, role: user.role },
-      token
-    });
+    const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: "24h" });
+    
+    sendTokenCookie(res, token); // Set Cookie
+    res.json({ message: "Login successful", user: { id: user.id, username: user.username, email: user.email, role: user.role } });
   } catch (err) {
     res.status(500).json({ error: "Server error: " + err.message });
   }
 });
+// logout
+app.post('/api/auth/logout', (req, res) => {
+  res.clearCookie('token');
+  res.json({ message: "Logged out successfully" });
+});
+
+app.get('/api/auth/me', verifyToken, async (req, res) => {
+  try {
+    const result = await pool.query("SELECT id, username, email, role FROM users WHERE id = $1", [req.user.id]);
+    if (result.rows.length === 0) return res.status(404).json({ error: "User not found" });
+    res.json({ user: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+
 
 // Get current user
 app.get('/api/auth/me', verifyToken, async (req, res) => {
@@ -215,15 +239,17 @@ app.patch('/api/admin/users/:id/role', verifyToken, async (req, res) => {
 // POST route to receive form data and save to PostgreSQL
 app.post('/api/notes', verifyToken, async (req, res) => {
   const { patientName, doctorName, date, notes } = req.body;
+  if (!patientName || !doctorName || !date || !notes) return res.status(400).json({ error: "All fields are required." });
 
-  if (!patientName || !doctorName || !date || !notes) {
-    return res.status(400).json({ error: "All fields are required." });
-  }
+  // BLUE TEAM FIX 4: Apply XSS Sanitizer to incoming data
+  const safePatientName = escapeHTML(patientName);
+  const safeDoctorName = escapeHTML(doctorName);
+  const safeNotes = escapeHTML(notes);
 
   try {
     const result = await pool.query(
       "INSERT INTO medical_notes (user_id, patient_name, doctor_name, date, notes) VALUES ($1, $2, $3, $4, $5) RETURNING *",
-      [req.user.id, patientName, doctorName, date, notes]
+      [req.user.id, safePatientName, safeDoctorName, date, safeNotes]
     );
     res.status(201).json({ message: "Note saved successfully.", note: result.rows[0] });
   } catch (err) {

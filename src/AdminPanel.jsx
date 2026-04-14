@@ -18,7 +18,7 @@ export default function AdminPanel() {
   const fetchUsers = async () => {
     try {
       const response = await axios.get('http://localhost:5000/api/admin/users', {
-        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true, 
       });
       setUsers(response.data.users);
       setError('');
@@ -30,15 +30,15 @@ export default function AdminPanel() {
   };
 
   const fetchAllNotes = async () => {
-    try {
-      const response = await axios.get('http://localhost:5000/api/notes', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setAllNotes(response.data);
-    } catch (err) {
-      setError('Failed to fetch medical records.');
-    }
-  };
+  try {
+    const response = await axios.get('http://localhost:5000/api/notes', {
+      withCredentials: true 
+    });
+    setAllNotes(response.data);
+  } catch (err) {
+    setError('Failed to fetch medical records: ' + (err.response?.data?.error || err.message));
+  }
+};
 
   const updateUserRole = async (userId, newRole) => {
     try {

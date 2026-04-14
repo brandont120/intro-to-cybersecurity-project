@@ -16,7 +16,7 @@ export default function StandardUserView() {
   const [searchMessage, setSearchMessage] = useState('');
 
 
-  const { user, token, logout } = useContext(AuthContext);
+  const { user, logout } = useContext(AuthContext);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -27,12 +27,10 @@ export default function StandardUserView() {
     try {
       const response = await fetch('http://localhost:5000/api/notes', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(formData),
-      });
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(formData),
+        });
       const data = await response.json();
       if (response.ok) {
         setMessage('Medical note saved successfully!');
@@ -58,8 +56,9 @@ export default function StandardUserView() {
     try {
       // Pass the search query as a URL parameter to your backend
       const response = await fetch(`http://localhost:5000/api/notes?search=${searchQuery}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        credentials: 'include'
       });
+
       const data = await response.json();
       
       setSearchResults(data);
