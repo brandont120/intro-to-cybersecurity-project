@@ -107,7 +107,7 @@ const sendTokenCookie = (res, token) => {
     maxAge: 24 * 60 * 60 * 1000 
   });
 };
-
+// Sign up
 app.post('/api/auth/signup', async (req, res) => {
   const { username, email, password } = req.body;
   if (!username || !email || !password) return res.status(400).json({ error: "All fields required" });
@@ -122,13 +122,13 @@ app.post('/api/auth/signup', async (req, res) => {
     const user = result.rows[0];
     const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: "24h" });
     
-    sendTokenCookie(res, token); // Set Cookie
+    sendTokenCookie(res, token); 
     res.status(201).json({ message: "User created successfully", user });
   } catch (err) {
     res.status(500).json({ error: "Server error: " + err.message });
   }
 });
-
+// Login
 app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: "Email and password required" });
@@ -143,14 +143,14 @@ app.post('/api/auth/login', async (req, res) => {
 
     const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: "24h" });
     
-    sendTokenCookie(res, token); // Set Cookie
+    sendTokenCookie(res, token); 
     res.json({ message: "Login successful", user: { id: user.id, username: user.username, email: user.email, role: user.role } });
   } catch (err) {
     res.status(500).json({ error: "Server error: " + err.message });
   }
 });
 
-// logout
+// Logout
 app.post('/api/auth/logout', (req, res) => {
   res.clearCookie('token');
   res.json({ message: "Logged out successfully" });
@@ -205,7 +205,6 @@ app.post('/api/notes', verifyToken, async (req, res) => {
   const { patientName, doctorName, date, notes } = req.body;
   if (!patientName || !doctorName || !date || !notes) return res.status(400).json({ error: "All fields are required." });
 
-  // BLUE TEAM FIX 4: Apply XSS Sanitizer to incoming data
   const safePatientName = escapeHTML(patientName);
   const safeDoctorName = escapeHTML(doctorName);
   const safeNotes = escapeHTML(notes);
@@ -237,7 +236,6 @@ app.get('/api/notes', verifyToken, async (req, res) => {
 
     const result = await pool.query(query, params);
     
-    // Map snake_case database columns to camelCase frontend variables
     const formattedNotes = result.rows.map(row => ({
       id: row.id,
       patientName: row.patient_name,
